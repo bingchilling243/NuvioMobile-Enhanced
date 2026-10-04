@@ -2352,6 +2352,9 @@ private fun ExoPlayer.snapshot(videoDecoder: String?, audioDecoder: String?): Pl
         playbackSpeed = playbackParameters.speed,
         videoWidth = videoWidth,
         videoHeight = videoHeight,
+        fullBufferFraction = currentMediaItem?.localConfiguration?.uri?.toString()?.let {
+            BackgroundVideoBufferAndroid.fullBufferProgress(it)
+        },
         mediaInfoJson = buildExoPlayerMediaInfoJson(videoDecoder, audioDecoder),
     )
 }
