@@ -85,7 +85,8 @@ internal fun DataSource.Factory.withPlaybackBuffering(
 ): DataSource.Factory {
     val plainFactory = this
     val hasFullBufferRequest = bufferedUrls.any { BackgroundVideoBufferRequests.peek(it) != null }
-    if (bufferedUrls.isEmpty() && !hasFullBufferRequest && !settings.vodDiskCacheEnabled && !settings.exoNativeMemoryEnabled) {
+    val hasFullBufferedUrl = bufferedUrls.any { BackgroundVideoBufferAndroid.isBufferedOrBuffering(context, it) }
+    if (bufferedUrls.isEmpty() && !hasFullBufferRequest && !hasFullBufferedUrl && !settings.vodDiskCacheEnabled && !settings.exoNativeMemoryEnabled) {
         return this
     }
     val cacheDirectory = context.cacheDir
