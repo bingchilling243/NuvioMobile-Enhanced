@@ -134,6 +134,13 @@ android {
                 debugSymbolLevel = "FULL"
             }
         }
+        create("buffer") {
+            // Personal beta build: keep it separately installable from the normal Nuvio app.
+            // It uses the debug signing key so no private release key is committed to the fork.
+            initWith(getByName("debug"))
+            applicationIdSuffix = ".buffer"
+            versionNameSuffix = "-buffer"
+        }
     }
 
     compileOptions {
