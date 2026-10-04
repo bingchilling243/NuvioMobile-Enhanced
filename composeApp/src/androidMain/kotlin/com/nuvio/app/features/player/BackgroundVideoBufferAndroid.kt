@@ -3,6 +3,7 @@
 package com.nuvio.app.features.player
 
 import android.content.Context
+import android.util.Log
 import androidx.media3.common.C
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.database.StandaloneDatabaseProvider
@@ -43,7 +44,7 @@ internal object BackgroundVideoBufferAndroid {
         if (url in activeUrls) return true
         val cache = getCache(context)
         val length = ContentMetadata.getContentLength(cache.getContentMetadata(url))
-        return length != C.LENGTH_UNSET && length >= 0L && cache.isCached(url, 0L, length)
+        return length != C.LENGTH_UNSET.toLong() && length >= 0L && cache.isCached(url, 0L, length)
     }
 
     fun cache(context: Context): SimpleCache = getCache(context)
@@ -52,7 +53,7 @@ internal object BackgroundVideoBufferAndroid {
         if (url in activeUrls) return
         val cache = getCache(context)
         val contentLength = ContentMetadata.getContentLength(cache.getContentMetadata(url))
-        if (contentLength != C.LENGTH_UNSET && contentLength >= 0L && cache.isCached(url, 0L, contentLength)) {
+        if (contentLength != C.LENGTH_UNSET.toLong() && contentLength >= 0L && cache.isCached(url, 0L, contentLength)) {
             activeUrls += url
             return
         }
@@ -70,10 +71,10 @@ internal object BackgroundVideoBufferAndroid {
                     MediaItem.fromUri(url),
                     cacheDataSourceFactory,
                 ).download(null)
-                InAppLogger.info("Player/Buffer", "full video buffer completed url=${InAppLogger.redactUrl(url)}")
+                Log.i("Player/Buffer", "full video buffer completed url=$url")
             } catch (error: Throwable) {
                 activeUrls.remove(url)
-                InAppLogger.warn("Player/Buffer", "full video buffer failed url=${InAppLogger.redactUrl(url)} error=${error.message}")
+                Log.w("Player/Buffer", "full video buffer failed url=$url error=${error.message}")
             } finally {
                 workers.remove(url)
             }
