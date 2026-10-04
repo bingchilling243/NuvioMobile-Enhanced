@@ -1,0 +1,51 @@
+name: Nuvio Buffer APK Release
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  build-buffer-apk:
+    if: startsWith(github.event.release.tag_name, 'buffer-')
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout release commit
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.release.tag_name }}
+
+      - name: Set up JDK
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Build Buffer APK
+        run: |
+          chmod +x ./gradlew
+          ./gradlew :androidApp:assembleFullBuffer \
+            -Pnuvio.android.distribution=full \
+            --stacktrace
+
+      - name: Locate and rename APK
+        run: |
+          APK="$(find androidApp/build/outputs/apk -type f -name '*.apk' | head -n 1)"
+          test -n "$APK"
+          cp "$APK" "Nuvio-Enhanced-Buffer.apk"
+          echo "Built: $APK"
+
+      - name: Upload APK to GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload "${{ github.event.release.tag_name }}" \
+            Nuvio-Enhanced-Buffer.apk \
+            --repo "${{ github.repository }}" \
+            --clobber
