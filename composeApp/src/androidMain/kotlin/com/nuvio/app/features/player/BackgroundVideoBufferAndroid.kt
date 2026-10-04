@@ -70,10 +70,10 @@ internal object BackgroundVideoBufferAndroid {
                     .setKey(url)
                     .build()
                 CacheWriter(dataSource, dataSpec, null, null).cache()
-                InAppLogger.info("Player/Buffer", "full video buffer completed url=${{InAppLogger.redactUrl(url)}")
+                InAppLogger.info("Player/Buffer", "full video buffer completed url=${InAppLogger.redactUrl(url)}")
             } catch (error: Throwable) {
                 activeUrls.remove(url)
-                InAppLogger.warn("Player/Buffer", "full video buffer failed url=${{InAppLogger.redactUrl(url)} error=${{error.message}")
+                InAppLogger.warn("Player/Buffer", "full video buffer failed url=${InAppLogger.redactUrl(url)} error=${error.message}")
             } finally {
                 workers.remove(url)
             }
