@@ -114,6 +114,7 @@ internal fun PlayerTimeline(
     val durationMs = snapshot.durationMs.coerceAtLeast(0L)
     val rangeEnd = durationMs.coerceAtLeast(1L).toFloat()
     val bufferedFraction = (snapshot.bufferedPositionMs.toFloat() / rangeEnd).coerceIn(0f, 1f)
+    val fullBufferFraction = snapshot.fullBufferFraction
     val accent = MaterialTheme.colorScheme.primary
     val accentBrush = MaterialTheme.themePalette.accentBrush()
     val description = stringResource(Res.string.player_seek_position)
@@ -159,6 +160,14 @@ internal fun PlayerTimeline(
                                 size = Size(size.width, trackHeight),
                                 cornerRadius = radius,
                             )
+                            fullBufferFraction?.let { fraction ->
+                                drawRoundRect(
+                                    color = Color.White.copy(alpha = 0.42f),
+                                    topLeft = trackOrigin,
+                                    size = Size(size.width * fraction, trackHeight),
+                                    cornerRadius = radius,
+                                )
+                            }
                             drawRoundRect(
                                 color = accent.copy(alpha = 0.35f),
                                 topLeft = trackOrigin,
