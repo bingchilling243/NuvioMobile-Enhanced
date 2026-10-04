@@ -85,6 +85,7 @@ import com.nuvio.app.features.debrid.DirectDebridPlayableResult
 import com.nuvio.app.features.debrid.DirectDebridPlaybackResolver
 import com.nuvio.app.features.debrid.toastMessage
 import com.nuvio.app.features.player.PlayerSettingsRepository
+import com.nuvio.app.features.player.BackgroundVideoBufferRequests
 import com.nuvio.app.features.watchprogress.WatchProgressRepository
 import com.nuvio.app.features.watchprogress.WatchProgressEntry
 import com.nuvio.app.features.watched.WatchedRepository
@@ -290,6 +291,49 @@ fun StreamsScreen(
             }
     }
 
+    val bufferStartedText = stringResource(Res.string.streams_buffer_entire_video_started)
+    val startEntireVideoBuffer: (StreamItem) -> Unit = { stream ->
+        fun beginBuffer(resolvedStream: StreamItem) {
+            val url = resolvedStream.playableDirectUrl
+            if (url.isNullOrBlank()) {
+                NuvioToastController.show(noDirectStreamLinkText)
+                return
+            }
+            BackgroundVideoBufferRequests.request(
+                url = url,
+                headers = resolvedStream.behaviorHints.proxyHeaders?.request.orEmpty(),
+                streamType = resolvedStream.streamType,
+            )
+            NuvioToastController.show(bufferStartedText)
+            onStreamActionOpen(
+                resolvedStream,
+                false,
+                effectiveResumePositionMs,
+                effectiveResumeProgressFraction,
+            )
+        }
+
+        if (DirectDebridPlaybackResolver.shouldResolveToPlayableStream(stream)) {
+            downloadScope.launch {
+                when (
+                    val resolved = DirectDebridPlaybackResolver.resolveToPlayableStream(
+                        stream = stream,
+                        season = seasonNumber,
+                        episode = episodeNumber,
+                    )
+                ) {
+                    is DirectDebridPlayableResult.Success -> beginBuffer(resolved.stream)
+                    else -> {
+                        val message = resolved.toastMessage()
+                        if (message != null) NuvioToastController.show(message)
+                    }
+                }
+            }
+        } else {
+            beginBuffer(stream)
+        }
+    }
+
     if (showLoadingScreen) return
 
     BoxWithConstraints(
@@ -418,6 +462,7 @@ fun StreamsScreen(
                 }
             },
             onDownload = startStreamDownload,
+            onBufferEntireVideo = startEntireVideoBuffer,
             onOpen = { stream, openExternally ->
                 onStreamActionOpen(
                     stream,
@@ -1168,6 +1213,7 @@ private fun StreamActionsSheet(
     onDismiss: () -> Unit,
     onCopyLink: (StreamItem) -> Unit,
     onDownload: (StreamItem) -> Unit,
+    onBufferEntireVideo: (StreamItem) -> Unit,
     onOpen: (StreamItem, openExternally: Boolean) -> Unit,
 ) {
     if (stream == null) return
@@ -1256,6 +1302,16 @@ private fun StreamActionsSheet(
                 ),
                 onClick = {
                     onOpen(stream, !externalPlayerEnabled)
+                    coroutineScope.launch {
+                        dismissNuvioBottomSheet(sheetState = sheetState, onDismiss = onDismiss)
+                    }
+                },
+            )
+            NuvioBottomSheetActionRow(
+                icon = Icons.Rounded.Download,
+                title = stringResource(Res.string.streams_buffer_entire_video),
+                onClick = {
+                    onBufferEntireVideo(stream)
                     coroutineScope.launch {
                         dismissNuvioBottomSheet(sheetState = sheetState, onDismiss = onDismiss)
                     }

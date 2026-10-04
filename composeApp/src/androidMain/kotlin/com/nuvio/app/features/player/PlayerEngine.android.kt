@@ -318,6 +318,13 @@ private fun ExoPlayerSurface(
         )
     }
 
+    BackgroundVideoBufferAndroid.startIfRequested(
+        context = context,
+        url = sourceUrl,
+        headers = sanitizedSourceHeaders,
+        streamType = normalizedStreamType,
+    )
+
     var probeAttempted by remember(playerSourceKey) { mutableStateOf(false) }
 
     val extractorsFactory = remember {
