@@ -83,10 +83,22 @@ internal fun DataSource.Factory.withPlaybackBuffering(
     settings: PlayerSettingsUiState,
     bufferedUrls: Set<String>,
 ): DataSource.Factory {
-    if (bufferedUrls.isEmpty() || (!settings.vodDiskCacheEnabled && !settings.exoNativeMemoryEnabled)) return this
     val plainFactory = this
+    val hasFullBufferRequest = BackgroundVideoBufferRequests.peek(
+        bufferedUrls.firstOrNull().orEmpty()
+    ) != null
+    if (bufferedUrls.isEmpty() && !hasFullBufferRequest && !settings.vodDiskCacheEnabled && !settings.exoNativeMemoryEnabled) {
+        return this
+    }
     val cacheDirectory = context.cacheDir
     var bufferedFactory: DataSource.Factory = plainFactory
+    val fullBufferFactory = DataSource.Factory {
+        CacheDataSource.Factory()
+            .setCache(BackgroundVideoBufferAndroid.cache(context))
+            .setUpstreamDataSourceFactory(plainFactory)
+            .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
+            .createDataSource()
+    }
     if (settings.vodDiskCacheEnabled) {
         bufferedFactory = CacheDataSource.Factory()
             .setCache(PlaybackDiskCache.get(context, settings))
@@ -102,10 +114,12 @@ internal fun DataSource.Factory.withPlaybackBuffering(
     }
     val finalBufferedFactory = bufferedFactory
     return DataSource.Factory {
-        SelectiveBufferedDataSource(
+        FullBufferAwareDataSource(
             plain = plainFactory.createDataSource(),
+            fullBuffered = fullBufferFactory.createDataSource(),
             buffered = finalBufferedFactory.createDataSource(),
             bufferedUrls = bufferedUrls,
+            context = context,
         )
     }
 }
@@ -128,6 +142,44 @@ private object PlaybackDiskCache {
                 StandaloneDatabaseProvider(context.applicationContext),
             )
         }.also { cache = it }
+}
+
+private class FullBufferAwareDataSource(
+    private val plain: DataSource,
+    private val fullBuffered: DataSource,
+    private val buffered: DataSource,
+    private val bufferedUrls: Set<String>,
+    private val context: Context,
+) : DataSource {
+    private var active: DataSource = plain
+
+    override fun addTransferListener(transferListener: TransferListener) {
+        plain.addTransferListener(transferListener)
+        fullBuffered.addTransferListener(transferListener)
+        buffered.addTransferListener(transferListener)
+    }
+
+    override fun open(dataSpec: DataSpec): Long {
+        val url = dataSpec.uri.toString()
+        val shouldFullBuffer = BackgroundVideoBufferAndroid.isBufferedOrBuffering(context, url) ||
+            BackgroundVideoBufferRequests.peek(url) != null
+        active = when {
+            shouldFullBuffer -> fullBuffered
+            url in bufferedUrls -> buffered
+            else -> plain
+        }
+        return active.open(dataSpec)
+    }
+
+    override fun read(buffer: ByteArray, offset: Int, length: Int): Int =
+        active.read(buffer, offset, length)
+
+    override fun getUri(): Uri? = active.uri
+    override fun getResponseHeaders(): Map<String, List<String>> = active.responseHeaders
+
+    override fun close() {
+        active.close()
+    }
 }
 
 private class SelectiveBufferedDataSource(
