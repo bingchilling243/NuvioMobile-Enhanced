@@ -25,7 +25,7 @@ internal object BackgroundVideoBufferAndroid {
     @Synchronized
     private fun getCache(context: Context): SimpleCache =
         cache ?: run {
-            val directory = File(context.applicationContext.cacheDir, CACHE_DIRECTORY).apply { mkdirs() }
+            val directory = File(context.applicationContext.filesDir, CACHE_DIRECTORY).apply { mkdirs() }
             SimpleCache(directory, NoOpCacheEvictor(), StandaloneDatabaseProvider(context.applicationContext))
         }.also { cache = it }
 
