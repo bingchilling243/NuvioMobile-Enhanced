@@ -3,16 +3,15 @@
 package com.nuvio.app.features.player
 
 import android.content.Context
-import android.net.Uri
 import androidx.media3.common.C
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.database.StandaloneDatabaseProvider
-import androidx.media3.datasource.DataSpec
 import androidx.media3.datasource.cache.CacheDataSource
-import androidx.media3.datasource.cache.CacheWriter
+import androidx.media3.common.MediaItem
 import androidx.media3.datasource.cache.ContentMetadata
 import androidx.media3.datasource.cache.NoOpCacheEvictor
 import androidx.media3.datasource.cache.SimpleCache
+import androidx.media3.exoplayer.offline.ProgressiveDownloader
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 
@@ -64,15 +63,13 @@ internal object BackgroundVideoBufferAndroid {
                 val upstreamFactory = PlayerPlaybackNetworking.createDataSourceFactory(
                     context.applicationContext, headers, useLongReadTimeout = true
                 )
-                val dataSource = CacheDataSource.Factory()
+                val cacheDataSourceFactory = CacheDataSource.Factory()
                     .setCache(cache)
                     .setUpstreamDataSourceFactory(upstreamFactory)
-                    .createDataSourceForDownloading()
-                val dataSpec = DataSpec.Builder()
-                    .setUri(Uri.parse(url))
-                    .setKey(url)
-                    .build()
-                CacheWriter(dataSource, dataSpec, null, null).cache()
+                ProgressiveDownloader(
+                    MediaItem.fromUri(url),
+                    cacheDataSourceFactory,
+                ).download(null)
                 InAppLogger.info("Player/Buffer", "full video buffer completed url=${InAppLogger.redactUrl(url)}")
             } catch (error: Throwable) {
                 activeUrls.remove(url)
