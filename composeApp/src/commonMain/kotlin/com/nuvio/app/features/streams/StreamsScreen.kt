@@ -291,6 +291,7 @@ fun StreamsScreen(
             }
     }
 
+    val bufferStartedText = stringResource(Res.string.streams_buffer_entire_video_started)
     val startEntireVideoBuffer: (StreamItem) -> Unit = { stream ->
         fun beginBuffer(resolvedStream: StreamItem) {
             val url = resolvedStream.playableDirectUrl
@@ -303,7 +304,7 @@ fun StreamsScreen(
                 headers = resolvedStream.behaviorHints.proxyHeaders?.request.orEmpty(),
                 streamType = resolvedStream.streamType,
             )
-            NuvioToastController.show(stringResource(Res.string.streams_buffer_entire_video_started))
+            NuvioToastController.show(bufferStartedText)
             onStreamActionOpen(
                 resolvedStream,
                 false,
@@ -322,7 +323,10 @@ fun StreamsScreen(
                     )
                 ) {
                     is DirectDebridPlayableResult.Success -> beginBuffer(resolved.stream)
-                    else -> resolved.toastMessage()?.let(NuvioToastController::show)
+                    else -> {
+                        val message = resolved.toastMessage()
+                        if (message != null) NuvioToastController.show(message)
+                    }
                 }
             }
         } else {
