@@ -19,6 +19,7 @@ import java.util.concurrent.ConcurrentHashMap
 internal object BackgroundVideoBufferAndroid {
     private const val CACHE_DIRECTORY = "vod_buffer_cache"
     private var cache: SimpleCache? = null
+    private var applicationContext: Context? = null
     private val activeUrls = ConcurrentHashMap.newKeySet<String>()
     private val workers = ConcurrentHashMap<String, Thread>()
 
@@ -27,7 +28,10 @@ internal object BackgroundVideoBufferAndroid {
         cache ?: run {
             val directory = File(context.applicationContext.filesDir, CACHE_DIRECTORY).apply { mkdirs() }
             SimpleCache(directory, NoOpCacheEvictor(), StandaloneDatabaseProvider(context.applicationContext))
-        }.also { cache = it }
+        }.also {
+            cache = it
+            applicationContext = context.applicationContext
+        }
 
     fun startIfRequested(context: Context, url: String, headers: Map<String, String>, streamType: String?) {
         if (!isProgressivePlaybackSource(url, emptyMap(), streamType)) {
@@ -48,6 +52,16 @@ internal object BackgroundVideoBufferAndroid {
     }
 
     fun cache(context: Context): SimpleCache = getCache(context)
+
+    fun fullBufferProgress(url: String): Float? {
+        val context = applicationContext ?: return null
+        val cache = getCache(context)
+        val length = ContentMetadata.getContentLength(cache.getContentMetadata(url))
+        if (length == C.LENGTH_UNSET.toLong() || length <= 0L) return null
+        if (cache.isCached(url, 0L, length)) return 1f
+        val cachedBytes = cache.getCachedSpans(url).sumOf { it.length }.coerceAtMost(length)
+        return (cachedBytes.toDouble() / length.toDouble()).toFloat().coerceIn(0f, 1f)
+    }
 
     private fun start(context: Context, url: String, headers: Map<String, String>) {
         if (url in activeUrls) return
