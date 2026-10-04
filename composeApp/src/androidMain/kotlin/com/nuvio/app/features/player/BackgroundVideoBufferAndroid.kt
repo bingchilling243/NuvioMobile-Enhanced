@@ -34,7 +34,10 @@ internal object BackgroundVideoBufferAndroid {
             BackgroundVideoBufferRequests.clear(url)
             return
         }
-        BackgroundVideoBufferRequests.peek(url)?.let { start(context, url, it.headers.ifEmpty { headers }) }
+        BackgroundVideoBufferRequests.peek(url)?.let { request ->
+            start(context, url, request.headers.ifEmpty { headers })
+            BackgroundVideoBufferRequests.clear(url)
+        }
     }
 
     fun isBufferedOrBuffering(context: Context, url: String): Boolean {
