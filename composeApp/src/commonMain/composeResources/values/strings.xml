@@ -2669,4 +2669,6 @@
     <string name="movie_status_rumored">Rumored</string>
     <string name="movie_status_in_production">In Production</string>
     <string name="movie_status_post_production">Post Production</string>
+    <string name="streams_buffer_entire_video">Buffer Entire Video</string>
+    <string name="streams_buffer_entire_video_started">Buffering video in background…</string>
 </resources>
