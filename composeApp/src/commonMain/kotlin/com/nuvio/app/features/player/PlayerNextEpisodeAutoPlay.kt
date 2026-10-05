@@ -64,6 +64,33 @@ internal fun PlayerScreenRuntime.cancelNextEpisodeAutoPlay() {
     nextEpisodeAutoPlayCountdown = null
 }
 
+internal fun PlayerScreenRuntime.prebufferNextEpisode() {
+    if (nextEpisodePrebufferTriggered || nextEpisodePrebufferJob?.isActive == true) return
+    val next = nextEpisodeInfo?.takeIf { it.hasAired } ?: return
+    val playbackKey = activePlaybackKey
+    val nextVideoId = next.videoId
+
+    nextEpisodePrebufferTriggered = true
+    nextEpisodePrebufferJob = scope.launchPlayerNextEpisodePrebuffer(
+        nextEpisodeInfo = next,
+        allEpisodes = playerMetaVideos,
+        parentMetaId = parentMetaId,
+        parentMetaType = parentMetaType,
+        contentType = contentType,
+        currentStreamBingeGroup = currentStreamBingeGroup,
+        onResolved = { stream, episode ->
+            if (playbackKey == activePlaybackKey && nextEpisodeInfo?.videoId == nextVideoId) {
+                nextEpisodePrebufferedStream = stream
+            }
+        },
+        onFailed = {
+            if (playbackKey == activePlaybackKey && nextEpisodeInfo?.videoId == nextVideoId) {
+                nextEpisodePrebufferedStream = null
+            }
+        },
+    )
+}
+
 internal fun CoroutineScope.launchPlayerNextEpisodeAutoPlay(
     previousJob: Job?,
     nextEpisodeInfo: NextEpisodeInfo?,
