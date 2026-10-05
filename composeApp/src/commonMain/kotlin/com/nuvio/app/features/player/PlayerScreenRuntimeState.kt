@@ -17,6 +17,7 @@ import com.nuvio.app.features.p2p.P2pSettingsUiState
 import com.nuvio.app.features.p2p.P2pStreamingState
 import com.nuvio.app.features.player.skip.NextEpisodeInfo
 import com.nuvio.app.features.player.skip.SkipInterval
+import com.nuvio.app.features.streams.StreamItem
 import com.nuvio.app.features.streams.StreamsUiState
 import com.nuvio.app.features.tracking.TrackingMediaReference
 import com.nuvio.app.features.watched.WatchedUiState
@@ -209,6 +210,9 @@ internal class PlayerScreenRuntime(
     var nextEpisodeAutoPlayAutomatic by mutableStateOf(false)
     var nextEpisodePreloadJob by mutableStateOf<Job?>(null)
     var nextEpisodePreloadTriggered by mutableStateOf(false)
+    var nextEpisodePrebufferJob by mutableStateOf<Job?>(null)
+    var nextEpisodePrebufferTriggered by mutableStateOf(false)
+    var nextEpisodePrebufferedStream by mutableStateOf<StreamItem?>(null)
     var pendingP2pSwitch by mutableStateOf<PendingPlayerP2pSwitch?>(null)
     var credentialRefreshJob by mutableStateOf<Job?>(null)
     var credentialRefreshAttemptedSourceUrl by mutableStateOf<String?>(null)
