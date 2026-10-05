@@ -528,6 +528,10 @@ private fun PlayerScreenRuntime.BindPlayerMetadataAndSkipEffects() {
         showNextEpisodeCard = false
         nextEpisodeCardDismissed = false
         cancelNextEpisodeAutoPlay()
+        nextEpisodePrebufferJob?.cancel()
+        nextEpisodePrebufferJob = null
+        nextEpisodePrebufferTriggered = false
+        nextEpisodePrebufferedStream = null
 
         val season = activeSeasonNumber
         val episode = activeEpisodeNumber
@@ -675,6 +679,23 @@ private fun PlayerScreenRuntime.BindPlayerMetadataAndSkipEffects() {
                 } else null,
             )
         } else null
+    }
+
+    // Once the current episode is fully cached, resolve the next episode using the
+    // same binge-group/source identity and start its independent background download.
+    LaunchedEffect(
+        playbackSnapshot.fullBufferFraction,
+        activePlaybackKey,
+        nextEpisodeInfo,
+    ) {
+        if (
+            isSeries &&
+            playbackSnapshot.fullBufferFraction != null &&
+            playbackSnapshot.fullBufferFraction >= 0.999f &&
+            nextEpisodeInfo?.hasAired == true
+        ) {
+            prebufferNextEpisode()
+        }
     }
 
     LaunchedEffect(playbackSnapshot.isEnded) {
