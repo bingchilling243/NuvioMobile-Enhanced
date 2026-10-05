@@ -529,6 +529,21 @@ internal fun PlayerScreenRuntime.playNextEpisode(automatic: Boolean = false) {
     if (!isCurrentRequest()) return
     nextEpisodeAutoPlayAutomatic = automatic
 
+    val nextVideo = playerMetaVideos.firstOrNull { it.id == nextVideoId }
+    val prebuffered = nextEpisodePrebufferedStream?.takeIf {
+        nextVideo != null && nextEpisodeInfo?.videoId == nextVideoId
+    }
+    if (prebuffered != null && nextVideo != null) {
+        nextEpisodePrebufferedStream = null
+        nextEpisodePrebufferJob?.cancel()
+        nextEpisodePrebufferJob = null
+        nextEpisodePrebufferTriggered = false
+        nextEpisodeAutoPlaySearching = false
+        nextEpisodeAutoPlayCountdown = null
+        switchToEpisodeStream(prebuffered, nextVideo)
+        return
+    }
+
     scope.launchPlayerNextEpisodeAutoPlay(
         previousJob = nextEpisodeAutoPlayJob,
         nextEpisodeInfo = nextEpisodeInfo,
