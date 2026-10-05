@@ -7,5 +7,7 @@ object BackgroundVideoBufferRequests {
         if (url.isNotBlank()) pending = Request(url, headers, streamType)
     }
     fun peek(url: String): Request? = pending?.takeIf { it.url == url }
+    fun peekAny(): Request? = pending
     fun clear(url: String) { if (pending?.url == url) pending = null }
+    fun clearAny() { pending = null }
 }
