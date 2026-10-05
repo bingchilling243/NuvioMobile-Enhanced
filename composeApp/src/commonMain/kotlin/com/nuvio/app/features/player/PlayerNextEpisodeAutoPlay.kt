@@ -395,7 +395,7 @@ internal fun CoroutineScope.launchPlayerNextEpisodePrebuffer(
             )
 
             var selected: StreamItem? = null
-            repeat(60) {
+            for (attempt in 0 until 60) {
                 val state = PlayerStreamsRepository.episodeStreamsState.value
                 val streams = state.groups.flatMap { it.streams }
                 if (streams.isNotEmpty()) {
@@ -418,11 +418,11 @@ internal fun CoroutineScope.launchPlayerNextEpisodePrebuffer(
                         debridEnabled = debridSettings.canResolvePlayableLinks,
                         activeResolverProviderId = debridSettings.activeResolverProviderId,
                     )
-                    if (selected != null || !state.isAnyLoading) return@repeat
+                    if (selected != null || !state.isAnyLoading) break
                 } else if (!state.isAnyLoading) {
-                    return@repeat
+                    break
                 }
-                delay(500L)
+                if (attempt < 59) delay(500L)
             }
 
             val resolved = selected?.let { stream ->
