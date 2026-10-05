@@ -67,6 +67,20 @@ internal object BackgroundVideoBufferAndroid {
         }
     }
 
+    /**
+     * Starts a queued background buffer even when its URL is not the URL currently
+     * attached to ExoPlayer. This is used by next-episode prebuffering.
+     */
+    fun startPending(context: Context) {
+        val request = BackgroundVideoBufferRequests.peekAny() ?: return
+        if (!isProgressivePlaybackSource(request.url, emptyMap(), request.streamType)) {
+            BackgroundVideoBufferRequests.clearAny()
+            return
+        }
+        start(context, request.url, request.headers)
+        BackgroundVideoBufferRequests.clearAny()
+    }
+
     fun isBufferedOrBuffering(context: Context, url: String): Boolean {
         if (url in activeUrls || url in completedUrls) return true
         val cache = getCache(context)
