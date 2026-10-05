@@ -633,6 +633,10 @@ private fun PlayerScreenRuntime.resetEpisodePanelAndNextEpisodeState() {
     showLiveChannelsPanel = false
     episodeStreamsPanelState = EpisodeStreamsPanelState()
     cancelNextEpisodeAutoPlay()
+    nextEpisodePrebufferJob?.cancel()
+    nextEpisodePrebufferJob = null
+    nextEpisodePrebufferTriggered = false
+    nextEpisodePrebufferedStream = null
     PlayerStreamsRepository.clearEpisodeStreams()
 }
 
