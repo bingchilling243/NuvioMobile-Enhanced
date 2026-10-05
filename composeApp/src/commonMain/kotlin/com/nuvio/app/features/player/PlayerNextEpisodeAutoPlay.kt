@@ -343,6 +343,90 @@ internal fun CoroutineScope.launchPlayerNextEpisodeAutoPlay(
     }
 }
 
+internal fun CoroutineScope.launchPlayerNextEpisodePrebuffer(
+    nextEpisodeInfo: NextEpisodeInfo?,
+    allEpisodes: List<MetaVideo>,
+    parentMetaId: String,
+    parentMetaType: String,
+    contentType: String?,
+    currentStreamBingeGroup: String?,
+    onResolved: (StreamItem, MetaVideo) -> Unit,
+    onFailed: () -> Unit,
+): Job? {
+    val nextVideoId = nextEpisodeInfo?.videoId ?: return null
+    val nextVideo = allEpisodes.firstOrNull { it.id == nextVideoId } ?: return null
+    if (nextEpisodeInfo.hasAired != true) return null
+
+    return launch {
+        try {
+            val type = contentType ?: parentMetaType
+            PlayerStreamsRepository.loadEpisodeStreams(
+                type = type,
+                videoId = nextVideo.id,
+                season = nextVideo.season,
+                episode = nextVideo.episode,
+            )
+
+            var selected: StreamItem? = null
+            repeat(60) {
+                val state = PlayerStreamsRepository.episodeStreamsState.value
+                val streams = state.groups.flatMap { it.streams }
+                if (streams.isNotEmpty()) {
+                    val debridSettings = DebridSettingsRepository.snapshot()
+                    val installedAddonNames = AddonRepository.uiState.value.addons
+                        .enabledAddons()
+                        .map { it.displayTitle }
+                        .toSet()
+                    selected = StreamAutoPlaySelector.selectAutoPlayStream(
+                        streams = streams,
+                        mode = StreamAutoPlayMode.FIRST_STREAM,
+                        regexPattern = "",
+                        source = StreamAutoPlaySource.ALL_SOURCES,
+                        installedAddonNames = installedAddonNames,
+                        selectedAddons = emptySet(),
+                        selectedPlugins = emptySet(),
+                        preferredBingeGroup = currentStreamBingeGroup,
+                        preferBingeGroupInSelection = !currentStreamBingeGroup.isNullOrBlank(),
+                        bingeGroupOnly = false,
+                        debridEnabled = debridSettings.canResolvePlayableLinks,
+                        activeResolverProviderId = debridSettings.activeResolverProviderId,
+                    )
+                    if (selected != null || !state.isAnyLoading) return@repeat
+                } else if (!state.isAnyLoading) {
+                    return@repeat
+                }
+                delay(500L)
+            }
+
+            val resolved = selected?.let { stream ->
+                when (val result = DirectDebridPlaybackResolver.resolveToPlayableStream(
+                    stream,
+                    nextVideo.season,
+                    nextVideo.episode,
+                )) {
+                    is DirectDebridPlayableResult.Success -> result.stream
+                    else -> null
+                }
+            } ?: selected
+
+            val url = resolved?.playableDirectUrl?.takeIf { it.isNotBlank() }
+            if (resolved == null || url == null) {
+                onFailed()
+                return@launch
+            }
+
+            BackgroundVideoBufferRequests.request(
+                url = url,
+                headers = sanitizePlaybackHeaders(resolved.behaviorHints.proxyHeaders?.request),
+                streamType = resolved.streamType,
+            )
+            onResolved(resolved, nextVideo)
+        } catch (_: Throwable) {
+            onFailed()
+        }
+    }
+}
+
 internal fun PlayerScreenRuntime.preloadNextEpisodeSources() {
     if (nextEpisodePreloadTriggered) return
     val nextEp = nextEpisodeInfo ?: return
