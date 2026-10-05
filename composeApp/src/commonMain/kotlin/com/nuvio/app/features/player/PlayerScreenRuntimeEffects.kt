@@ -688,10 +688,11 @@ private fun PlayerScreenRuntime.BindPlayerMetadataAndSkipEffects() {
         activePlaybackKey,
         nextEpisodeInfo,
     ) {
+        val fullBufferFraction = playbackSnapshot.fullBufferFraction
         if (
             isSeries &&
-            playbackSnapshot.fullBufferFraction != null &&
-            playbackSnapshot.fullBufferFraction >= 0.999f &&
+            fullBufferFraction != null &&
+            fullBufferFraction >= 0.999f &&
             nextEpisodeInfo?.hasAired == true
         ) {
             prebufferNextEpisode()
