@@ -16,12 +16,35 @@ import androidx.media3.exoplayer.offline.ProgressiveDownloader
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 
+internal data class BackgroundBufferProgress(
+    val state: State,
+    val downloadedBytes: Long,
+    val totalBytes: Long?,
+    val fraction: Float?,
+    val speedBytesPerSecond: Long,
+) {
+    enum class State {
+        Idle,
+        Buffering,
+        Complete,
+        Failed,
+    }
+}
+
 internal object BackgroundVideoBufferAndroid {
     private const val CACHE_DIRECTORY = "vod_buffer_cache"
     private var cache: SimpleCache? = null
     private var applicationContext: Context? = null
     private val activeUrls = ConcurrentHashMap.newKeySet<String>()
+    private val completedUrls = ConcurrentHashMap.newKeySet<String>()
+    private val failedUrls = ConcurrentHashMap.newKeySet<String>()
     private val workers = ConcurrentHashMap<String, Thread>()
+    private val progressSamples = ConcurrentHashMap<String, ProgressSample>()
+
+    private data class ProgressSample(
+        val timestampMs: Long,
+        val downloadedBytes: Long,
+    )
 
     @Synchronized
     private fun getCache(context: Context): SimpleCache =
@@ -45,7 +68,7 @@ internal object BackgroundVideoBufferAndroid {
     }
 
     fun isBufferedOrBuffering(context: Context, url: String): Boolean {
-        if (url in activeUrls) return true
+        if (url in activeUrls || url in completedUrls) return true
         val cache = getCache(context)
         val length = ContentMetadata.getContentLength(cache.getContentMetadata(url))
         return length != C.LENGTH_UNSET.toLong() && length >= 0L && cache.isCached(url, 0L, length)
@@ -53,26 +76,62 @@ internal object BackgroundVideoBufferAndroid {
 
     fun cache(context: Context): SimpleCache = getCache(context)
 
-    fun fullBufferProgress(url: String): Float? {
-        val context = applicationContext ?: return null
+    fun progress(url: String): BackgroundBufferProgress {
+        val context = applicationContext
+        if (context == null) {
+            return BackgroundBufferProgress(
+                state = BackgroundBufferProgress.State.Idle,
+                downloadedBytes = 0L,
+                totalBytes = null,
+                fraction = null,
+                speedBytesPerSecond = 0L,
+            )
+        }
         val cache = getCache(context)
-        val length = ContentMetadata.getContentLength(cache.getContentMetadata(url))
-        if (length == C.LENGTH_UNSET.toLong() || length <= 0L) return null
-        if (cache.isCached(url, 0L, length)) return 1f
-        val cachedBytes = cache.getCachedSpans(url).sumOf { it.length }.coerceAtMost(length)
-        return (cachedBytes.toDouble() / length.toDouble()).toFloat().coerceIn(0f, 1f)
+        val total = ContentMetadata.getContentLength(cache.getContentMetadata(url))
+            .takeIf { it != C.LENGTH_UNSET.toLong() && it > 0L }
+        val downloaded = cache.getCachedSpans(url).sumOf { it.length }.coerceAtLeast(0L)
+        val now = System.currentTimeMillis()
+        val previous = progressSamples.put(url, ProgressSample(now, downloaded))
+        val speed = previous?.let {
+            val elapsed = now - it.timestampMs
+            if (elapsed > 0L && downloaded >= it.downloadedBytes) {
+                ((downloaded - it.downloadedBytes) * 1000L / elapsed).coerceAtLeast(0L)
+            } else 0L
+        } ?: 0L
+        val isComplete = total != null && downloaded >= total && cache.isCached(url, 0L, total)
+        val state = when {
+            isComplete -> BackgroundBufferProgress.State.Complete
+            url in activeUrls -> BackgroundBufferProgress.State.Buffering
+            url in failedUrls -> BackgroundBufferProgress.State.Failed
+            downloaded > 0L -> BackgroundBufferProgress.State.Idle
+            else -> BackgroundBufferProgress.State.Idle
+        }
+        return BackgroundBufferProgress(
+            state = state,
+            downloadedBytes = downloaded,
+            totalBytes = total,
+            fraction = total?.let { (downloaded.toDouble() / it.toDouble()).toFloat().coerceIn(0f, 1f) },
+            speedBytesPerSecond = speed,
+        )
     }
+
+    fun fullBufferProgress(url: String): Float? = progress(url).fraction
 
     private fun start(context: Context, url: String, headers: Map<String, String>) {
         if (url in activeUrls) return
         val cache = getCache(context)
         val contentLength = ContentMetadata.getContentLength(cache.getContentMetadata(url))
         if (contentLength != C.LENGTH_UNSET.toLong() && contentLength >= 0L && cache.isCached(url, 0L, contentLength)) {
-            activeUrls += url
+            completedUrls += url
+            failedUrls.remove(url)
+            activeUrls.remove(url)
             return
         }
         if (workers.containsKey(url)) return
+        failedUrls.remove(url)
         activeUrls += url
+        progressSamples.remove(url)
         val worker = Thread({
             try {
                 val upstreamFactory = PlayerPlaybackNetworking.createDataSourceFactory(
@@ -85,12 +144,15 @@ internal object BackgroundVideoBufferAndroid {
                     MediaItem.fromUri(url),
                     cacheDataSourceFactory,
                 ).download(null)
+                completedUrls += url
                 Log.i("Player/Buffer", "full video buffer completed url=$url")
             } catch (error: Throwable) {
-                activeUrls.remove(url)
+                failedUrls += url
                 Log.w("Player/Buffer", "full video buffer failed url=$url error=${error.message}")
             } finally {
+                activeUrls.remove(url)
                 workers.remove(url)
+                progressSamples.remove(url)
             }
         }, "nuvio-full-video-buffer").apply { isDaemon = true }
         workers[url] = worker
