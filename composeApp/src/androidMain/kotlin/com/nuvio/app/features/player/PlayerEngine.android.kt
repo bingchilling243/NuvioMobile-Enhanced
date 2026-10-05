@@ -135,6 +135,16 @@ actual fun PlatformPlayerSurface(
         PlayerSettingsRepository.ensureLoaded()
         PlayerSettingsRepository.uiState.value
     }
+
+    // Keep the Android background-buffer worker alive independently of the currently
+    // playing URL. This lets the next episode start downloading as soon as its
+    // source has been resolved, without waiting for the user to switch episodes.
+    LaunchedEffect(Unit) {
+        while (true) {
+            BackgroundVideoBufferAndroid.startPending(context)
+            delay(500L)
+        }
+    }
     val playerSourceKey = listOf(
         sourceUrl,
         sourceAudioUrl.orEmpty(),
