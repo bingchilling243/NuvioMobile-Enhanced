@@ -12,8 +12,10 @@ jobs:
     if: startsWith(github.event.release.tag_name, 'buffer-')
     runs-on: ubuntu-latest
     env:
-      RELEASE_PROPERTIES_BASE64: ${{ secrets.NUVIO_LOCAL_PROPERTIES_BASE64 }}
-      RELEASE_KEYSTORE_BASE64: ${{ secrets.NUVIO_RELEASE_KEYSTORE_BASE64 }}
+      BUFFER_KEYSTORE_BASE64: ${{ secrets.NUVIO_BUFFER_KEYSTORE_BASE64 }}
+      BUFFER_STORE_PASSWORD: ${{ secrets.NUVIO_BUFFER_STORE_PASSWORD }}
+      BUFFER_KEY_ALIAS: ${{ secrets.NUVIO_BUFFER_KEY_ALIAS }}
+      BUFFER_KEY_PASSWORD: ${{ secrets.NUVIO_BUFFER_KEY_PASSWORD }}
 
     steps:
       - name: Checkout release commit
@@ -32,22 +34,27 @@ jobs:
         with:
           packages: platform-tools
 
-      - name: Configure release signing
+      - name: Configure Buffer signing
         run: |
-          test -n "${RELEASE_PROPERTIES_BASE64}"
-          test -n "${RELEASE_KEYSTORE_BASE64}"
-          keystore_path="${RUNNER_TEMP}/nuvio-release.jks"
-          printf '%s' "${RELEASE_KEYSTORE_BASE64}" | base64 --decode > "${keystore_path}"
-          printf '%s' "${RELEASE_PROPERTIES_BASE64}" | base64 --decode > local.properties
-          sed -i -E '/^[[:space:]]*(sdk\.dir|NUVIO_RELEASE_STORE_FILE)[[:space:]]*=/d' local.properties
-          printf '\nNUVIO_RELEASE_STORE_FILE=%s\n' "${keystore_path}" >> local.properties
+          test -n "${BUFFER_KEYSTORE_BASE64}"
+          test -n "${BUFFER_STORE_PASSWORD}"
+          test -n "${BUFFER_KEY_ALIAS}"
+          test -n "${BUFFER_KEY_PASSWORD}"
+
+          keystore_path="${RUNNER_TEMP}/nuvio-buffer.jks"
+          printf '%s' "${BUFFER_KEYSTORE_BASE64}" | base64 --decode > "${keystore_path}"
+
+          cat > local.properties <<EOF
+          NUVIO_RELEASE_STORE_FILE=${keystore_path}
+          NUVIO_RELEASE_STORE_PASSWORD=${BUFFER_STORE_PASSWORD}
+          NUVIO_RELEASE_KEY_ALIAS=${BUFFER_KEY_ALIAS}
+          NUVIO_RELEASE_KEY_PASSWORD=${BUFFER_KEY_PASSWORD}
+          EOF
 
       - name: Build Buffer APK
         run: |
           chmod +x ./gradlew
-          ./gradlew :androidApp:assembleFullBuffer \
-            -Pnuvio.android.distribution=full \
-            --stacktrace
+          ./gradlew :androidApp:assembleFullBuffer             -Pnuvio.android.distribution=full             --stacktrace
 
       - name: Locate and rename APK
         run: |
@@ -60,7 +67,4 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release upload "${{ github.event.release.tag_name }}" \
-            Nuvio-Enhanced-Buffer.apk \
-            --repo "${{ github.repository }}" \
-            --clobber
+          gh release upload "${{ github.event.release.tag_name }}"             Nuvio-Enhanced-Buffer.apk             --repo "${{ github.repository }}"             --clobber
