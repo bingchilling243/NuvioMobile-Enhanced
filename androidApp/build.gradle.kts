@@ -91,7 +91,7 @@ android {
 
     packaging {
         resources {
-            excludes += "/META-INF/{AL2.0,LGPL2.1}"
+            excludes += "/META-INF/{AL2.0,LGPL2.0}"
         }
         jniLibs {
             useLegacyPackaging = true
@@ -136,10 +136,12 @@ android {
         }
         create("buffer") {
             // Personal beta build: keep it separately installable from the normal Nuvio app.
-            // It uses the debug signing key so no private release key is committed to the fork.
-            initWith(getByName("debug"))
+            // Buffer releases use the persistent Nuvio release keystore so updates are installable
+            // across GitHub Actions runs.
+            initWith(getByName("release"))
             applicationIdSuffix = ".buffer"
             versionNameSuffix = "-buffer"
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 
