@@ -47,7 +47,6 @@ jobs:
           chmod +x ./gradlew
           ./gradlew :androidApp:assembleFullBuffer \
             -Pnuvio.android.distribution=full \
-            -Pnuvio.app.versionName="${{ github.event.release.tag_name }}" \
             --stacktrace
 
       - name: Locate and rename APK
