@@ -11,6 +11,9 @@ jobs:
   build-buffer-apk:
     if: startsWith(github.event.release.tag_name, 'buffer-')
     runs-on: ubuntu-latest
+    env:
+      RELEASE_PROPERTIES_BASE64: ${{ secrets.NUVIO_LOCAL_PROPERTIES_BASE64 }}
+      RELEASE_KEYSTORE_BASE64: ${{ secrets.NUVIO_RELEASE_KEYSTORE_BASE64 }}
 
     steps:
       - name: Checkout release commit
@@ -29,19 +32,30 @@ jobs:
         with:
           packages: platform-tools
 
+      - name: Configure release signing
+        run: |
+          test -n "${RELEASE_PROPERTIES_BASE64}"
+          test -n "${RELEASE_KEYSTORE_BASE64}"
+          keystore_path="${RUNNER_TEMP}/nuvio-release.jks"
+          printf '%s' "${RELEASE_KEYSTORE_BASE64}" | base64 --decode > "${keystore_path}"
+          printf '%s' "${RELEASE_PROPERTIES_BASE64}" | base64 --decode > local.properties
+          sed -i -E '/^[[:space:]]*(sdk\.dir|NUVIO_RELEASE_STORE_FILE)[[:space:]]*=/d' local.properties
+          printf '\nNUVIO_RELEASE_STORE_FILE=%s\n' "${keystore_path}" >> local.properties
+
       - name: Build Buffer APK
         run: |
           chmod +x ./gradlew
           ./gradlew :androidApp:assembleFullBuffer \
             -Pnuvio.android.distribution=full \
+            -Pnuvio.app.versionName="${{ github.event.release.tag_name }}" \
             --stacktrace
 
       - name: Locate and rename APK
         run: |
           APK="$(find androidApp/build/outputs/apk -type f -name '*.apk' | head -n 1)"
-          test -n "$APK"
-          cp "$APK" "Nuvio-Enhanced-Buffer.apk"
-          echo "Built: $APK"
+          test -n "${APK}"
+          cp "${APK}" "Nuvio-Enhanced-Buffer.apk"
+          echo "Built: ${APK}"
 
       - name: Upload APK to GitHub Release
         env:
