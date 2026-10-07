@@ -59,7 +59,7 @@ object PlayerNextEpisodeRules {
             // Calculate the user's configured threshold as milliseconds from end.
             val userThresholdMs = when (thresholdMode) {
                 NextEpisodeThresholdMode.PERCENTAGE -> {
-                    val clampedPercent = thresholdPercent.coerceIn(97f, 100f)
+                    val clampedPercent = thresholdPercent.coerceIn(92f, 100f)
                     ((1.0 - clampedPercent / 100.0) * durationMs).toLong()
                 }
                 NextEpisodeThresholdMode.MINUTES_BEFORE_END -> {
@@ -71,7 +71,7 @@ object PlayerNextEpisodeRules {
             return if (postOutroGapMs > userThresholdMs) {
                 when (thresholdMode) {
                     NextEpisodeThresholdMode.PERCENTAGE -> {
-                        val clampedPercent = thresholdPercent.coerceIn(97f, 100f)
+                        val clampedPercent = thresholdPercent.coerceIn(92f, 100f)
                         (positionMs.toDouble() / durationMs.toDouble()) >= (clampedPercent / 100.0)
                     }
                     NextEpisodeThresholdMode.MINUTES_BEFORE_END -> {
