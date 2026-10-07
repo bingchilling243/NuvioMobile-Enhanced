@@ -9,7 +9,7 @@ permissions:
 
 jobs:
   build-buffer-apk:
-    if: startsWith(github.event.release.tag_name, 'buffer-')
+    if: startsWith(github.event.release.tag_name, 'buffer-') || startsWith(github.event.release.tag_name, 'Buffer-')
     runs-on: ubuntu-latest
     env:
       BUFFER_KEYSTORE_BASE64: ${{ secrets.NUVIO_BUFFER_KEYSTORE_BASE64 }}
