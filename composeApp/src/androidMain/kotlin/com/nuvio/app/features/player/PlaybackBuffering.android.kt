@@ -84,9 +84,10 @@ internal fun DataSource.Factory.withPlaybackBuffering(
     bufferedUrls: Set<String>,
 ): DataSource.Factory {
     val plainFactory = this
-    val hasFullBufferRequest = bufferedUrls.any { BackgroundVideoBufferRequests.peek(it) != null }
-    val hasFullBufferedUrl = bufferedUrls.any { BackgroundVideoBufferAndroid.isBufferedOrBuffering(context, it) }
-    if (bufferedUrls.isEmpty() && !hasFullBufferRequest && !hasFullBufferedUrl && !settings.vodDiskCacheEnabled && !settings.exoNativeMemoryEnabled) {
+    // Do not inspect SimpleCache while Compose is building the player. Cache metadata and
+    // span checks touch disk and can stall the UI thread during episode/source changes.
+    // FullBufferAwareDataSource performs the cache check from ExoPlayer's data-source thread.
+    if (bufferedUrls.isEmpty() && !settings.vodDiskCacheEnabled && !settings.exoNativeMemoryEnabled) {
         return this
     }
     val cacheDirectory = context.cacheDir
