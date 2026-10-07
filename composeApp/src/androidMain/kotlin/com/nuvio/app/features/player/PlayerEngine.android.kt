@@ -142,7 +142,9 @@ actual fun PlatformPlayerSurface(
     // source has been resolved, without waiting for the user to switch episodes.
     LaunchedEffect(Unit) {
         while (true) {
-            BackgroundVideoBufferAndroid.startPending(context)
+            withContext(Dispatchers.IO) {
+                BackgroundVideoBufferAndroid.startPending(context)
+            }
             delay(500L)
         }
     }
@@ -328,13 +330,6 @@ private fun ExoPlayerSurface(
                 .build(),
         )
     }
-
-    BackgroundVideoBufferAndroid.startIfRequested(
-        context = context,
-        url = sourceUrl,
-        headers = sanitizedSourceHeaders,
-        streamType = normalizedStreamType,
-    )
 
     var probeAttempted by remember(playerSourceKey) { mutableStateOf(false) }
 
