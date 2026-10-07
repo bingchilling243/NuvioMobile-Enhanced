@@ -1,24 +1,39 @@
-name: Android Build
+name: Enhanced Buffer Development APK
 
-run-name: Android Build - ${{ github.ref_name }}
+run-name: Buffer Dev APK - ${{ github.ref_name }} #${{ github.run_number }}
 
 on:
   workflow_dispatch:
   push:
     branches:
       - enhanced
+    paths:
+      - 'androidApp/**'
+      - 'composeApp/**'
+      - 'gradle/**'
+      - 'build.gradle.kts'
+      - 'settings.gradle.kts'
+      - 'gradle.properties'
+      - 'gradle/libs.versions.toml'
+      - 'gradlew'
+      - 'gradlew.bat'
 
 permissions:
   contents: read
 
 concurrency:
-  group: android-build-${{ github.ref }}
+  group: buffer-dev-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  full-debug-build:
-    name: Build fullDebug APK
+  build-buffer:
+    name: Build Enhanced Buffer APK
     runs-on: ubuntu-latest
+    env:
+      BUFFER_KEYSTORE_BASE64: ${{ secrets.NUVIO_BUFFER_KEYSTORE_BASE64 }}
+      BUFFER_STORE_PASSWORD: ${{ secrets.NUVIO_BUFFER_STORE_PASSWORD }}
+      BUFFER_KEY_ALIAS: ${{ secrets.NUVIO_BUFFER_KEY_ALIAS }}
+      BUFFER_KEY_PASSWORD: ${{ secrets.NUVIO_BUFFER_KEY_PASSWORD }}
 
     steps:
       - name: Checkout
@@ -28,29 +43,49 @@ jobs:
         uses: actions/setup-java@v5
         with:
           distribution: temurin
-          java-version: 17
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+        with:
+          packages: platform-tools
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v6
 
-      - name: Prepare runtime properties
-        env:
-          LOCAL_PROPERTIES_BASE64: ${{ secrets.NUVIO_LOCAL_PROPERTIES_BASE64 }}
+      - name: Configure Buffer signing
         run: |
-          if [ -n "$LOCAL_PROPERTIES_BASE64" ]; then
-            printf '%s' "$LOCAL_PROPERTIES_BASE64" | base64 --decode > local.properties
-            sed -i -E '/^[[:space:]]*(sdk\.dir|NUVIO_RELEASE_STORE_FILE)[[:space:]]*=/d' local.properties
-          else
-            touch local.properties
-          fi
+          test -n "${BUFFER_KEYSTORE_BASE64}"
+          test -n "${BUFFER_STORE_PASSWORD}"
+          test -n "${BUFFER_KEY_ALIAS}"
+          test -n "${BUFFER_KEY_PASSWORD}"
 
-      - name: Build fullDebug APK
-        run: ./gradlew :androidApp:assembleFullDebug -Pnuvio.android.distribution=full -Pnuvio.ios.distribution=appstore --stacktrace
+          keystore_path="${RUNNER_TEMP}/nuvio-buffer.jks"
+          printf '%s' "${BUFFER_KEYSTORE_BASE64}" | base64 --decode > "${keystore_path}"
 
-      - name: Upload fullDebug APK
+          cat > local.properties <<EOF
+          NUVIO_RELEASE_STORE_FILE=${keystore_path}
+          NUVIO_RELEASE_STORE_PASSWORD=${BUFFER_STORE_PASSWORD}
+          NUVIO_RELEASE_KEY_ALIAS=${BUFFER_KEY_ALIAS}
+          NUVIO_RELEASE_KEY_PASSWORD=${BUFFER_KEY_PASSWORD}
+          EOF
+
+      - name: Build Enhanced Buffer APK
+        run: |
+          chmod +x ./gradlew
+          ./gradlew :androidApp:assembleFullBuffer             -Pnuvio.android.distribution=full             --stacktrace
+
+      - name: Prepare APK artifact
+        run: |
+          APK="$(find androidApp/build/outputs/apk -type f -name '*.apk' | head -n 1)"
+          test -n "${APK}"
+          cp "${APK}" "Nuvio-Enhanced-Buffer-dev-${{ github.run_number }}.apk"
+          echo "Built: ${APK}"
+
+      - name: Upload Enhanced Buffer APK
         uses: actions/upload-artifact@v7
         with:
-          name: android-full-debug
-          path: androidApp/build/outputs/apk/full/debug/androidApp-full-debug.apk
+          name: Nuvio-Enhanced-Buffer-dev-${{ github.run_number }}
+          path: Nuvio-Enhanced-Buffer-dev-${{ github.run_number }}.apk
           if-no-files-found: error
           retention-days: 7
