@@ -90,7 +90,7 @@ object PlayerNextEpisodeRules {
         if (durationMs <= 0L) return false
         return when (thresholdMode) {
             NextEpisodeThresholdMode.PERCENTAGE -> {
-                val clampedPercent = thresholdPercent.coerceIn(97f, 100f)
+                val clampedPercent = thresholdPercent.coerceIn(92f, 100f)
                 (positionMs.toDouble() / durationMs.toDouble()) >= (clampedPercent / 100.0)
             }
             NextEpisodeThresholdMode.MINUTES_BEFORE_END -> {
@@ -187,7 +187,7 @@ object PlayerNextEpisodeRules {
         thresholdMinutesBeforeEnd: Float,
     ): Long = when (thresholdMode) {
         NextEpisodeThresholdMode.PERCENTAGE -> {
-            val clampedPercent = thresholdPercent.coerceIn(97f, 100f)
+            val clampedPercent = thresholdPercent.coerceIn(92f, 100f)
             kotlin.math.ceil(durationMs * (clampedPercent / 100.0)).toLong()
         }
         NextEpisodeThresholdMode.MINUTES_BEFORE_END -> {
