@@ -121,8 +121,6 @@ fun PlayerSourcesPanel(
             )
         }
     }
-}
-
 
     PlayerSourceActionsSheet(
         stream = actionStream,
@@ -133,7 +131,7 @@ fun PlayerSourcesPanel(
         },
     )
 }
- 
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun PlayerSourceActionsSheet(
@@ -167,7 +165,7 @@ private fun PlayerSourceActionsSheet(
             )
             NuvioBottomSheetActionRow(
                 icon = Icons.Rounded.Download,
-                title = stringResource(Res.string.streams_buffer_entire_video),
+                title = "Buffer Entire Video",
                 onClick = {
                     onBufferEntireVideo(stream)
                     scope.launch {
