@@ -184,6 +184,7 @@ internal fun PlayerScreenModalHosts(
         currentStreamName = activeStreamTitle,
         onFilterSelected = onSourceFilterSelected,
         onStreamSelected = onSourceStreamSelected,
+        onBufferEntireVideo = onBufferEntireVideo,
         onReload = onReloadSources,
         onDismiss = onSourcesPanelDismissed,
     )
