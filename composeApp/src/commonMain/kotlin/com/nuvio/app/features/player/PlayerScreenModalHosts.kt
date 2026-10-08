@@ -66,6 +66,7 @@ internal fun PlayerScreenModalHosts(
     onQualityPanelDismissed: () -> Unit,
     onSourceFilterSelected: (String?) -> Unit,
     onSourceStreamSelected: (StreamItem) -> Unit,
+    onBufferEntireVideo: (StreamItem) -> Unit,
     onReloadSources: () -> Unit,
     onSourcesPanelDismissed: () -> Unit,
     showLiveChannelsPanel: Boolean,
