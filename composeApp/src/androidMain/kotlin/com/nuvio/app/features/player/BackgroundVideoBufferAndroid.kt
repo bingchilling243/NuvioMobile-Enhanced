@@ -7,12 +7,13 @@ import android.util.Log
 import androidx.media3.common.C
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.database.StandaloneDatabaseProvider
+import androidx.media3.datasource.DataSpec
 import androidx.media3.datasource.cache.CacheDataSource
-import androidx.media3.common.MediaItem
+import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.cache.ContentMetadata
 import androidx.media3.datasource.cache.NoOpCacheEvictor
 import androidx.media3.datasource.cache.SimpleCache
-import androidx.media3.exoplayer.offline.ProgressiveDownloader
+import android.net.Uri
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 
@@ -132,6 +133,51 @@ internal object BackgroundVideoBufferAndroid {
 
     fun fullBufferProgress(url: String): Float? = progress(url).fraction
 
+
+    private fun downloadInRanges(
+        url: String,
+        cacheDataSourceFactory: CacheDataSource.Factory,
+    ) {
+        val chunkBytes = 64L * 1024L * 1024L
+        var position = 0L
+        val buffer = ByteArray(64 * 1024)
+
+        while (true) {
+            val dataSource = cacheDataSourceFactory.createDataSource()
+            val dataSpec = DataSpec(
+                Uri.parse(url),
+                position,
+                chunkBytes,
+            )
+            val available = try {
+                dataSource.open(dataSpec)
+            } catch (error: Throwable) {
+                dataSource.close()
+                if (position > 0L) break
+                throw error
+            }
+
+            var downloadedThisRange = 0L
+            try {
+                while (true) {
+                    val read = dataSource.read(buffer, 0, buffer.size)
+                    if (read == C.RESULT_END_OF_INPUT) break
+                    if (read <= 0) continue
+                    downloadedThisRange += read
+                    position += read
+                }
+            } finally {
+                dataSource.close()
+            }
+
+            if (downloadedThisRange <= 0L) break
+
+            // A short range means the server reached the end of the resource.
+            if (available != C.LENGTH_UNSET.toLong() && downloadedThisRange < chunkBytes) break
+            if (available == C.LENGTH_UNSET.toLong() && downloadedThisRange < chunkBytes) break
+        }
+    }
+
     private fun start(context: Context, url: String, headers: Map<String, String>) {
         if (url in activeUrls) return
         val cache = getCache(context)
@@ -154,10 +200,10 @@ internal object BackgroundVideoBufferAndroid {
                 val cacheDataSourceFactory = CacheDataSource.Factory()
                     .setCache(cache)
                     .setUpstreamDataSourceFactory(upstreamFactory)
-                ProgressiveDownloader(
-                    MediaItem.fromUri(url),
-                    cacheDataSourceFactory,
-                ).download(null)
+                downloadInRanges(
+                    url = url,
+                    cacheDataSourceFactory = cacheDataSourceFactory,
+                )
                 completedUrls += url
                 Log.i("Player/Buffer", "full video buffer completed url=$url")
             } catch (error: Throwable) {
