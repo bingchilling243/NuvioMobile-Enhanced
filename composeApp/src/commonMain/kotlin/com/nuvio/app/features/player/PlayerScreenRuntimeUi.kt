@@ -796,6 +796,7 @@ private fun PlayerScreenRuntime.RenderPlayerModals(displayedPositionMs: Long) {
         },
         onSourceFilterSelected = PlayerStreamsRepository::selectSourceFilter,
         onSourceStreamSelected = { stream -> switchToSource(stream) },
+        onBufferEntireVideo = { stream -> requestFullVideoBuffer(stream) },
         onReloadSources = {
             val vid = activeVideoId
             if (vid != null) {
