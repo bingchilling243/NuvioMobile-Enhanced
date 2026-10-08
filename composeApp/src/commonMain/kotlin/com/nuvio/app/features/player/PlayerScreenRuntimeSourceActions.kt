@@ -343,6 +343,33 @@ private fun PlayerScreenRuntime.switchToPreparedLiveChannel(channel: LiveTvChann
     )
 }
 
+internal fun PlayerScreenRuntime.requestFullVideoBuffer(stream: StreamItem) {
+    fun queue(resolvedStream: StreamItem) {
+        val url = resolvedStream.playableDirectUrl
+        if (url.isNullOrBlank()) return
+        BackgroundVideoBufferRequests.request(
+            url = url,
+            headers = sanitizePlaybackHeaders(resolvedStream.behaviorHints.proxyHeaders?.request),
+            streamType = resolvedStream.streamType,
+        )
+    }
+
+    if (DirectDebridPlaybackResolver.shouldResolveToPlayableStream(stream)) {
+        scope.launch {
+            when (val resolved = DirectDebridPlaybackResolver.resolveToPlayableStream(
+                stream = stream,
+                season = activeSeasonNumber,
+                episode = activeEpisodeNumber,
+            )) {
+                is DirectDebridPlayableResult.Success -> queue(resolved.stream)
+                else -> resolved.toastMessage()?.let { NuvioToastController.show(it) }
+            }
+        }
+    } else {
+        queue(stream)
+    }
+}
+
 internal fun PlayerScreenRuntime.switchToSource(stream: StreamItem) {
     if (
         resolveDebridForPlayer(
