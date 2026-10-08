@@ -36,6 +36,7 @@ import org.jetbrains.compose.resources.stringResource
 internal fun PlayerStreamList(
     streamsUiState: StreamsUiState,
     onStreamSelected: (StreamItem) -> Unit,
+    onStreamLongClick: ((StreamItem) -> Unit)? = null,
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(
         start = 8.dp,
@@ -110,6 +111,7 @@ internal fun PlayerStreamList(
                         isCurrent = stream.isCurrentPlayerStream(currentStreamUrl, currentStreamName),
                         currentLabel = currentLabel,
                         onClick = { onStreamSelected(stream) },
+                        onLongClick = onStreamLongClick?.let { callback -> { callback(stream) } },
                     )
                 }
                 if (streamsUiState.isAnyLoading) {
